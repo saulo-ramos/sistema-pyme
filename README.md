@@ -82,7 +82,7 @@ El archivo `src/mocks/mockClient.ts` implementa la interfaz del cliente Supabase
 
 | Módulo | Estado | Descripción |
 |--------|--------|-------------|
-| Dashboard | ✅ | Vista general de módulos |
+| Módulos | ✅ | Vista general de módulos |
 | Clientes | ✅ | CRUD completo, carga masiva Excel, búsqueda, paginación |
 | Ventas | ✅ | Movimientos, Libro de Ventas, Gráficas (4 tipos de chart) |
 | Compras | ✅ | Movimientos, Libro de Compras, Proveedores |
@@ -139,7 +139,7 @@ expect(verifyRut('12345678-0')).toBe(false); // dígito verificador incorrecto
 
 ```bash
 # 1. Clonar e instalar dependencias
-git clone https://github.com/tuusuario/sistema-pymes
+git clone https://github.com/saulo-ramos/sistema-pyme
 cd sistema-pymes
 npm install
 
@@ -222,5 +222,5 @@ supabase/
 
 ## Autor
 
-**Saulo Vergara** — Desarrollador Full Stack  
+**Saulo Ramos** — Desarrollador Full Stack  
 
