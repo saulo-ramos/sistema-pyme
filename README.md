@@ -102,6 +102,17 @@ El módulo más completo del sistema incluye:
 
 ---
 
+### Arquitectura de proyectos Vitest
+
+El archivo `vitest.config.ts` define dos proyectos independientes con entornos aislados:
+
+| Proyecto | Entorno | Archivos | Propósito |
+|----------|---------|----------|-----------|
+| `unit` | jsdom | `tests/lib/**` + `src/**` | Funciones puras sin efectos externos |
+| `integration` | jsdom + mock | `tests/modules/**`, `tests/auth/**`, `tests/security/**`, `tests/storage/**` | CRUD real contra el cliente mock |
+
+---
+
 ## Tests automatizados
 
 ```
@@ -116,15 +127,6 @@ npm run test:unit         # solo tests unitarios
 npm run test:integration  # solo tests de integración
 npm run test:e2e          # E2E con Playwright (requiere dev server)
 ```
-
-### Arquitectura de proyectos Vitest
-
-El archivo `vitest.config.ts` define dos proyectos independientes con entornos aislados:
-
-| Proyecto | Entorno | Archivos | Propósito |
-|----------|---------|----------|-----------|
-| `unit` | jsdom | `tests/lib/**` + `src/**` | Funciones puras sin efectos externos |
-| `integration` | jsdom + mock | `tests/modules/**`, `tests/auth/**`, `tests/security/**`, `tests/storage/**` | CRUD real contra el cliente mock |
 
 ### Tests unitarios — `tests/lib/`
 
