@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 27% 97%;
+    --foreground: 240 20% 35%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 20% 35%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 20% 35%;
+
+    --primary: 232 52% 31%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 237 97% 71%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent: 237 97% 71%;
+    --accent-foreground: 0 0% 100%;
+
+    --muted: 220 27% 97%;
+    --muted-foreground: 240 20% 35%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 87%;
+    --input: 220 20% 87%;
+    --ring: 237 97% 71%;
+
+    --radius: 0.5rem;
+
+    --navy: 232 52% 31%;
+    --periwinkle: 237 97% 71%;
+    --magenta: 293 99% 44%;
+    --indigo: 236 92% 69%;
+    --gray-light: 220 27% 97%;
+    --gray-text: 240 20% 35%;
+
+    --sidebar-background: 232 52% 31%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 237 97% 71%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 237 97% 71%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 232 52% 38%;
+    --sidebar-ring: 237 97% 71%;
+
+    --card-shadow: 0 2px 12px rgba(38, 53, 120, 0.08);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  h1, h2 {
+    font-weight: 700;
+  }
+
+  h3, h4 {
+    font-weight: 600;
+  }
+}
