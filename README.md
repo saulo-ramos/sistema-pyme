@@ -104,34 +104,134 @@ El módulo más completo del sistema incluye:
 
 ## Tests automatizados
 
-```bash
-npm run test          # pruebas unitarias + integración (mock)
-npm run test:e2e      # E2E con Playwright
+```
+261 tests pasando · 53 .todo (requieren Supabase real) · 0 fallos
 ```
 
-### Cobertura
+El proyecto tiene cobertura en cuatro niveles: unitario, integración, seguridad y E2E. Todos los tests del proyecto `unit` e `integration` corren **sin backend** gracias al cliente mock en memoria.
 
-| Tipo | Archivos | Qué prueba |
-|------|----------|-----------|
-| **Unitarios** | `tests/lib/*.test.ts` | Funciones puras: formatters, validación RUT chileno, sanitize, lógica de honorarios/remuneraciones/rendiciones |
-| **Integración** | `tests/modules/*.test.ts` | CRUD de todos los módulos con mock en memoria |
-| **Auth** | `tests/auth/*.test.ts` | Login, logout, aislamiento RLS por tenant |
-| **Seguridad** | `tests/security/*.test.ts` | SQL injection (escapeLikePattern), políticas RLS |
-| **Storage** | `tests/storage/*.test.ts` | Caminos de archivos, aislamiento por tenant |
-| **E2E** | `tests/e2e/*.spec.ts` | Flujo completo de login y navegación |
+```bash
+npm run test              # unitarios + integración (mock, sin Supabase)
+npm run test:unit         # solo tests unitarios
+npm run test:integration  # solo tests de integración
+npm run test:e2e          # E2E con Playwright (requiere dev server)
+```
 
-> Los tests marcados con `.todo` requieren conexión a Supabase real (ver `tests/.env.test.example`).
+### Arquitectura de proyectos Vitest
 
-### Validación de RUT chileno
+El archivo `vitest.config.ts` define dos proyectos independientes con entornos aislados:
+
+| Proyecto | Entorno | Archivos | Propósito |
+|----------|---------|----------|-----------|
+| `unit` | jsdom | `tests/lib/**` + `src/**` | Funciones puras sin efectos externos |
+| `integration` | jsdom + mock | `tests/modules/**`, `tests/auth/**`, `tests/security/**`, `tests/storage/**` | CRUD real contra el cliente mock |
+
+### Tests unitarios — `tests/lib/`
+
+Validan funciones puras sin DOM ni red. Se ejecutan en milisegundos.
+
+| Archivo | Qué prueba |
+|---------|-----------|
+| `formatters.test.ts` | `normalizeRut`, `normalizeFono`, `displayRut`, `displayDate`, `displayFono`, `formatCLP` |
+| `rut.test.ts` | `verifyRut` — 15 casos con RUTs válidos, inválidos y dígito K |
+| `sanitize.test.ts` | `escapeLikePattern` — patrones LIKE especiales (`%`, `_`, `\\`) |
+| `movimentos.test.ts` | `validarFecha`, `calcularResultado`, `insertBatch` (tabla no permitida) |
+| `storage.test.ts` | `buildStoragePath`, `extractPathFromUrl` — aislamiento de paths por tenant |
+| `honorarios.test.ts` | `calcularRetencion`, `calcularPagado`, constantes `TIPOS_HONORARIO` |
+| `remuneraciones.test.ts` | `calcularTotalImponible`, `calcularLiquido`, `calcularCostoTotal` |
+| `rendiciones.test.ts` | `calcularTotal`, `puedeEditar`, `puedeAprobar`, `generarNumero` |
 
 ```typescript
-// tests/lib/rut.test.ts — 15 casos de prueba
-import { verifyRut } from '@/lib/rut';
-
+// Ejemplo — tests/lib/rut.test.ts
 expect(verifyRut('12.345.678-9')).toBe(true);
 expect(verifyRut('14569484-K')).toBe(true);
 expect(verifyRut('12345678-0')).toBe(false); // dígito verificador incorrecto
+
+// Ejemplo — tests/lib/formatters.test.ts
+expect(normalizeRut('12.345.678-9')).toBe('12345678-9');
+expect(normalizeFono('+56 9 1234 5678')).toBe('+56912345678');
+expect(formatCLP(null)).toBe('—');
 ```
+
+### Tests de integración — `tests/modules/`
+
+Cada módulo de negocio tiene su propio archivo de tests que cubre el ciclo CRUD completo usando el cliente mock en memoria. El mock implementa la misma interfaz que el SDK de Supabase, por lo que el código de tests es idéntico al que correría contra la base de datos real.
+
+| Módulo | Casos cubiertos |
+|--------|----------------|
+| `clientes.test.ts` | INSERT con campos obligatorios, normalización RUT, UPDATE, DELETE, búsqueda por nombre/RUT, activar/desactivar |
+| `ventas.test.ts` | Movimientos de venta, cálculo IVA 19%, consulta libro de ventas por período |
+| `compras.test.ts` | Movimientos de compra, libro de compras, proveedores |
+| `honorarios.test.ts` | Boletas, retención 10% automática, libro de honorarios |
+| `remuneraciones.test.ts` | Trabajadores, liquidaciones, cálculo de haberes y descuentos |
+| `rendiciones.test.ts` | Workflow completo: Borrador → Enviada → Aprobada/Rechazada |
+| `proveedores.test.ts` | CRUD de proveedores con validación de RUT |
+
+```typescript
+// Ejemplo — tests/modules/clientes.test.ts
+it('inserta cliente con campos obligatorios y retorna registro', async () => {
+  const { data, error } = await client
+    .from('clientes')
+    .insert({ rut: '12345678-5', nombre: 'Empresa Prueba', tenant_id: TENANT_A_ID })
+    .select()
+    .single();
+
+  expect(error).toBeNull();
+  expect(data!.activo).toBe(true);
+});
+```
+
+### Tests de seguridad — `tests/security/`
+
+**SQL Injection (`sql-injection.test.ts`)**: verifica que los campos de búsqueda no son vulnerables a inyección. Prueba 6 payloads SQL clásicos y 6 patrones LIKE especiales contra `escapeLikePattern()`:
+
+```typescript
+const PAYLOADS_SQL = [
+  "'; DROP TABLE clientes; --",
+  "' OR '1'='1",
+  "' UNION SELECT * FROM user_tenants --",
+  "Robert'); DROP TABLE students; --",
+];
+// Todos producen resultados vacíos — nunca errores ni datos filtrados
+```
+
+**Políticas RLS (`rls-policies.test.ts`)**: valida que las restricciones de tenant se aplican en cada tabla — intentos de acceso cross-tenant retornan listas vacías o error.
+
+### Tests de autenticación — `tests/auth/`
+
+**`login.test.ts`**: cubre login correcto, contraseña incorrecta, usuario inexistente y cierre de sesión.
+
+**`rls-isolation.test.ts`**: garantía fundamental del sistema multi-tenant — el Tenant A nunca ve ni modifica datos del Tenant B:
+
+```typescript
+it('filtro por otro tenant retorna lista vacía', async () => {
+  const { data } = await client
+    .from('clientes')
+    .select('id')
+    .eq('tenant_id', TENANT_B_ID); // consultando desde contexto Tenant A
+
+  expect(data).toHaveLength(0);
+});
+
+it('insert sin tenant_id es rechazado', async () => {
+  const { error } = await client
+    .from('clientes')
+    .insert({ rut: '55555555-5', nombre: 'Sin Tenant' } as any)
+    .select().single();
+
+  expect(error).not.toBeNull();
+});
+```
+
+### Tests de storage — `tests/storage/`
+
+Validan el aislamiento de archivos por tenant: rutas generadas con `buildStoragePath`, extracción de path desde URL pública, e intentos de acceso cross-tenant.
+
+### Tests E2E — `tests/e2e/`
+
+Playwright cubre el flujo completo en navegador real: login, navegación entre módulos y verificación de redirección al dashboard. Configurados para correr en modo demo (sin Supabase).
+
+> Los tests marcados con `.todo` requieren conexión a Supabase real. Ver `tests/.env.test.example` para configurar un proyecto de staging.
 
 ---
 
